@@ -893,9 +893,51 @@ async function submitForm() {
   btn.disabled = true;
 
   try {
+    // Build compact plain-text body for reliable EmailJS delivery
+    const influencerList = influencers.length ? influencers.join(', ') : 'None';
+    const impulseAnswer = impulseEl ? impulseEl.value : 'Not answered';
+
+    const plainBody = [
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+      'FLYING TIGER INVESTMENTS — IOF ZONE SCORING',
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+      '',
+      `Student:        ${name}`,
+      `Ticker / Pair:  ${ticker.toUpperCase()}`,
+      `Date:           ${date}`,
+      `Trade Type:     ${type}`,
+      `Timeframes:     ${tf}`,
+      `Direction:      ${trend}`,
+      entry ? `Entry Price:    $${entry}` : null,
+      stop  ? `Stop Loss:      $${stop}`  : null,
+      '',
+      '── ZONE SCORE ──────────────────────────────',
+      `Range:          ${scores.range}  / 2`,
+      `Time:           ${scores.time}  / 2`,
+      `Purity:         ${scores.purity}  / 4`,
+      `Strength:       ${scores.strength}  / 4`,
+      `Trend:          ${scores.trend}  / 4`,
+      `Risk / Reward:  ${scores.rr}  / 4`,
+      '────────────────────────────────────────────',
+      `TOTAL:          ${total} / 20   →   ${verdict}`,
+      '',
+      '── ANALYSIS ────────────────────────────────',
+      `Strong Impulse Out of Zone:  ${impulseAnswer}`,
+      rationale ? `Description:  ${rationale}` : null,
+      '',
+      `Zone Influencers:  ${influencerList}`,
+      concerns ? `\nNotes / Other:\n${concerns}` : null,
+      '',
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+      'Chart screenshots attached by student separately.',
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+    ].filter(l => l !== null).join('\n');
+
     await emailjs.send('service_w7fl2mj', 'template_vqezjtd', {
+      to_email: 'stephenbrentjenkins@gmail.com',
+      from_name: name,
       subject: `IOF Zone Score: ${ticker.toUpperCase()} — ${name} (${total}/20 · ${verdict})`,
-      html_body: htmlBody
+      message: plainBody
     });
 
     btn.innerHTML = '<span>✓</span> Sent to Instructor';
