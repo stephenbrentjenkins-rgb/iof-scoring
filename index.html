@@ -758,7 +758,6 @@ async function submitForm() {
     alert('Please complete all required fields (marked with ✦) before submitting.');
     return;
   }
-
   const allScored = Object.values(scores).every(v => v !== null);
   if (!allScored) {
     alert('Please score all 6 criteria before submitting.');
@@ -778,6 +777,83 @@ async function submitForm() {
 
   let verdict = total >= 18 ? 'PRIME ZONE' : total >= 16 ? 'CONSIDER' : 'SKIP — DO NOT TRADE';
   let verdictColor = total >= 18 ? '#22c55e' : total >= 16 ? '#f97316' : '#ef4444';
+
+  // Build image previews for email
+  const imgSlots = ['Higher Timeframe','Mid Timeframe','Entry Timeframe'];
+  const imgSections = imgSlots.map((label, idx) => {
+    const prev = document.getElementById('preview' + idx);
+    const src = prev && prev.style.backgroundImage
+      ? prev.style.backgroundImage.replace(/url\(["']?/, '').replace(/["']?\)$/, '')
+      : null;
+    if (!src) return '';
+    return `<div style="margin-bottom:16px;">
+      <div style="font-family:monospace;font-size:10px;color:#f0c040;letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;">${label}</div>
+      <img src="${src}" style="width:100%;border-radius:6px;border:1px solid #232830;" alt="${label}"/>
+    </div>`;
+  }).join('');
+
+  const tableRows = [['Range',scores.range,2],['Time',scores.time,2],['Purity',scores.purity,4],['Strength',scores.strength,4],['Trend',scores.trend,4],['Risk / Reward',scores.rr,4]]
+    .map(([n,s,m],i) => `<tr style="background:${i%2===0?'#111318':'#0e1015'};border-bottom:1px solid #232830;">
+      <td style="padding:9px 14px;font-family:monospace;font-size:12px;color:#e8eaf0;">${n}</td>
+      <td style="padding:9px 14px;text-align:center;font-family:monospace;font-size:14px;font-weight:700;color:#f0c040;">${s}</td>
+      <td style="padding:9px 14px;text-align:right;font-family:monospace;font-size:12px;color:#7a8090;">${m}</td>
+    </tr>`).join('');
+
+  const metaRows = [['Student',name],['Ticker / Pair',ticker.toUpperCase()],['Date',date],['Trade Type',type],['Timeframes',tf],['Direction',trend],
+    ...(entry?[['Entry Price','$'+entry]]:[]), ...(stop?[['Stop Loss','$'+stop]]:[])];
+
+  const htmlBody = `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#0a0c10;font-family:Arial,sans-serif;">
+<div style="max-width:580px;margin:0 auto;padding:32px 20px;">
+  <div style="font-family:monospace;font-size:10px;color:#f0c040;letter-spacing:3px;text-transform:uppercase;margin-bottom:6px;">Flying Tiger Investments · IOF Course</div>
+  <h1 style="font-family:Georgia,serif;font-size:24px;font-weight:400;color:#e8eaf0;margin:0 0 4px;">Zone Scoring Submission</h1>
+  <div style="font-family:monospace;font-size:10px;color:#7a8090;margin-bottom:28px;">Submitted ${new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</div>
+
+  <div style="background:#111318;border:1px solid #232830;border-radius:10px;padding:20px;margin-bottom:14px;">
+    <table style="width:100%;border-collapse:collapse;">
+      ${metaRows.map(([k,v])=>`<tr style="border-bottom:1px solid #1a1e27;"><td style="padding:8px 4px;font-family:monospace;font-size:10px;color:#7a8090;letter-spacing:1px;text-transform:uppercase;width:130px;">${k}</td><td style="padding:8px 4px;font-size:13px;color:#e8eaf0;font-weight:500;">${v}</td></tr>`).join('')}
+    </table>
+  </div>
+
+  <div style="background:#111318;border:1px solid #232830;border-radius:10px;padding:20px;margin-bottom:14px;">
+    <div style="font-family:monospace;font-size:10px;color:#f0c040;letter-spacing:2px;text-transform:uppercase;margin-bottom:12px;">Zone Score</div>
+    <table style="width:100%;border-collapse:collapse;">
+      <tr style="background:#0d1015;"><th style="padding:7px 14px;text-align:left;font-family:monospace;font-size:10px;color:#7a8090;letter-spacing:1px;">CRITERION</th><th style="padding:7px 14px;text-align:center;font-family:monospace;font-size:10px;color:#7a8090;">SCORE</th><th style="padding:7px 14px;text-align:right;font-family:monospace;font-size:10px;color:#7a8090;">MAX</th></tr>
+      ${tableRows}
+      <tr style="background:#0a0c10;border-top:2px solid #f0c040;">
+        <td style="padding:11px 14px;font-family:monospace;font-size:12px;font-weight:700;color:#f0c040;">TOTAL</td>
+        <td style="padding:11px 14px;text-align:center;font-family:monospace;font-size:22px;font-weight:700;color:#f0c040;">${total}</td>
+        <td style="padding:11px 14px;text-align:right;font-family:monospace;font-size:11px;color:#7a8090;">20</td>
+      </tr>
+    </table>
+    <div style="margin-top:14px;padding:12px 16px;background:#0a0c10;border-radius:6px;border-left:3px solid ${verdictColor};">
+      <span style="font-family:monospace;font-size:10px;color:#7a8090;letter-spacing:1px;text-transform:uppercase;">Verdict &nbsp;&nbsp;</span>
+      <span style="font-family:monospace;font-size:15px;font-weight:700;color:${verdictColor};">${verdict}</span>
+    </div>
+  </div>
+
+  ${impulseEl || rationale ? `<div style="background:#111318;border:1px solid #232830;border-radius:10px;padding:20px;margin-bottom:14px;">
+    <div style="font-family:monospace;font-size:10px;color:#f0c040;letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;">Impulse Out of Zone</div>
+    ${impulseEl ? `<div style="font-family:monospace;font-size:13px;font-weight:700;color:${impulseEl.value==='Yes'?'#22c55e':'#ef4444'};margin-bottom:${rationale?'8px':'0'}">${impulseEl.value==='Yes'?'✓ Yes':'✕ No'}</div>` : ''}
+    ${rationale ? `<div style="font-size:13px;color:#b0b8cc;line-height:1.65;">${rationale}</div>` : ''}
+  </div>` : ''}
+
+  ${influencers.length ? `<div style="background:#111318;border:1px solid #232830;border-radius:10px;padding:20px;margin-bottom:14px;">
+    <div style="font-family:monospace;font-size:10px;color:#f0c040;letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;">Zone Influencers</div>
+    ${influencers.map(inf=>`<span style="display:inline-block;font-family:monospace;font-size:11px;background:rgba(240,192,64,0.1);border:1px solid rgba(240,192,64,0.3);color:#f0c040;padding:4px 12px;border-radius:4px;margin:3px 4px 3px 0;">${inf}</span>`).join('')}
+  </div>` : ''}
+
+  ${concerns ? `<div style="background:#111318;border:1px solid #232830;border-radius:10px;padding:20px;margin-bottom:14px;">
+    <div style="font-family:monospace;font-size:10px;color:#f0c040;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">Notes / Other</div>
+    <div style="font-size:13px;color:#b0b8cc;line-height:1.65;">${concerns}</div>
+  </div>` : ''}
+
+  ${imgSections ? `<div style="background:#111318;border:1px solid #232830;border-radius:10px;padding:20px;margin-bottom:14px;">
+    <div style="font-family:monospace;font-size:10px;color:#f0c040;letter-spacing:2px;text-transform:uppercase;margin-bottom:14px;">Chart Screenshots</div>
+    ${imgSections}
+  </div>` : ''}
+
+  <div style="border-top:1px solid #1a1e27;margin-top:20px;padding-top:16px;font-family:monospace;font-size:10px;color:#3a4050;text-align:center;letter-spacing:1px;">FLYING TIGER INVESTMENTS · IOF COURSE · CHART ACADEMY</div>
+</div></body></html>`;
 
   const summaryText = [
     `FLYING TIGER INVESTMENTS — IOF ZONE SCORING`,
@@ -801,7 +877,7 @@ async function submitForm() {
     `Risk/Reward:   ${scores.rr} / 4`,
     `${'─'.repeat(42)}`,
     `TOTAL:         ${total} / 20  →  ${verdict}`,
-    impulseEl ? `\nStrong Impulse Out of Zone: ${impulseEl.value}` : null,
+    impulseEl ? `\nStrong Impulse: ${impulseEl.value}` : null,
     rationale ? `Description: ${rationale}` : null,
     influencers.length ? `Zone Influencers: ${influencers.join(', ')}` : null,
     concerns ? `\nNotes / Other:\n${concerns}` : null,
@@ -810,98 +886,27 @@ async function submitForm() {
   document.getElementById('outputBox').textContent = summaryText;
   document.getElementById('successScore').innerHTML = `${total} <small>/ 20</small>`;
 
-  // ── SEND EMAIL ──
+  // ── SEND VIA EMAILJS ──
   const btn = document.querySelector('.btn-submit');
-  const origText = btn.innerHTML;
+  const origHTML = btn.innerHTML;
   btn.innerHTML = '<span>⏳</span> Sending…';
   btn.disabled = true;
 
-  const rows = [['Range',scores.range,2],['Time',scores.time,2],['Purity',scores.purity,4],['Strength',scores.strength,4],['Trend',scores.trend,4],['Risk / Reward',scores.rr,4]];
-  const tableRows = rows.map(([n,s,m],i) =>
-    `<tr style="background:${i%2===0?'#111318':'#0e1015'};border-bottom:1px solid #232830;">
-      <td style="padding:9px 14px;font-family:monospace;font-size:12px;color:#e8eaf0;">${n}</td>
-      <td style="padding:9px 14px;text-align:center;font-family:monospace;font-size:14px;font-weight:700;color:#f0c040;">${s}</td>
-      <td style="padding:9px 14px;text-align:right;font-family:monospace;font-size:12px;color:#7a8090;">${m}</td>
-    </tr>`).join('');
-
-  const metaRows = [['Student',name],['Ticker / Pair',ticker.toUpperCase()],['Date',date],['Trade Type',type],['Timeframes',tf],['Direction',trend],
-    ...(entry?[['Entry Price','$'+entry]]:[]), ...(stop?[['Stop Loss','$'+stop]]:[])];
-
-  const htmlBody = `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#0a0c10;font-family:Arial,sans-serif;">
-<div style="max-width:580px;margin:0 auto;padding:32px 20px;">
-  <div style="font-family:monospace;font-size:10px;color:#f0c040;letter-spacing:3px;text-transform:uppercase;margin-bottom:6px;">Flying Tiger Investments · IOF Course</div>
-  <h1 style="font-family:Georgia,serif;font-size:24px;font-weight:400;color:#e8eaf0;margin:0 0 4px;">Zone Scoring Submission</h1>
-  <div style="font-family:monospace;font-size:10px;color:#7a8090;margin-bottom:28px;">Submitted ${new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</div>
-
-  <div style="background:#111318;border:1px solid #232830;border-radius:10px;padding:20px;margin-bottom:14px;">
-    <table style="width:100%;border-collapse:collapse;">
-      ${metaRows.map(([k,v],i)=>`<tr style="border-bottom:1px solid #1a1e27;"><td style="padding:8px 4px;font-family:monospace;font-size:10px;color:#7a8090;letter-spacing:1px;text-transform:uppercase;width:120px;">${k}</td><td style="padding:8px 4px;font-size:13px;color:#e8eaf0;font-weight:500;">${v}</td></tr>`).join('')}
-    </table>
-  </div>
-
-  <div style="background:#111318;border:1px solid #232830;border-radius:10px;padding:20px;margin-bottom:14px;">
-    <div style="font-family:monospace;font-size:10px;color:#f0c040;letter-spacing:2px;text-transform:uppercase;margin-bottom:12px;">Zone Score</div>
-    <table style="width:100%;border-collapse:collapse;">
-      <tr style="background:#0d1015;">
-        <th style="padding:7px 14px;text-align:left;font-family:monospace;font-size:10px;color:#7a8090;letter-spacing:1px;">CRITERION</th>
-        <th style="padding:7px 14px;text-align:center;font-family:monospace;font-size:10px;color:#7a8090;letter-spacing:1px;">SCORE</th>
-        <th style="padding:7px 14px;text-align:right;font-family:monospace;font-size:10px;color:#7a8090;letter-spacing:1px;">MAX</th>
-      </tr>
-      ${tableRows}
-      <tr style="background:#0a0c10;border-top:2px solid #f0c040;">
-        <td style="padding:11px 14px;font-family:monospace;font-size:12px;font-weight:700;color:#f0c040;">TOTAL</td>
-        <td style="padding:11px 14px;text-align:center;font-family:monospace;font-size:20px;font-weight:700;color:#f0c040;">${total}</td>
-        <td style="padding:11px 14px;text-align:right;font-family:monospace;font-size:11px;color:#7a8090;">20</td>
-      </tr>
-    </table>
-    <div style="margin-top:14px;padding:12px 16px;background:#0a0c10;border-radius:6px;border-left:3px solid ${verdictColor};display:flex;align-items:center;gap:12px;">
-      <span style="font-family:monospace;font-size:10px;color:#7a8090;letter-spacing:1px;text-transform:uppercase;">Verdict</span>
-      <span style="font-family:monospace;font-size:15px;font-weight:700;color:${verdictColor};">${verdict}</span>
-    </div>
-  </div>
-
-  ${impulseEl || rationale ? `<div style="background:#111318;border:1px solid #232830;border-radius:10px;padding:20px;margin-bottom:14px;">
-    <div style="font-family:monospace;font-size:10px;color:#f0c040;letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;">Impulse Out of Zone</div>
-    ${impulseEl ? `<div style="font-family:monospace;font-size:13px;font-weight:700;color:${impulseEl.value==='Yes'?'#22c55e':'#ef4444'};margin-bottom:8px;">${impulseEl.value==='Yes'?'✓ Yes':'✕ No'}</div>` : ''}
-    ${rationale ? `<div style="font-size:13px;color:#b0b8cc;line-height:1.65;">${rationale}</div>` : ''}
-  </div>` : ''}
-
-  ${influencers.length ? `<div style="background:#111318;border:1px solid #232830;border-radius:10px;padding:20px;margin-bottom:14px;">
-    <div style="font-family:monospace;font-size:10px;color:#f0c040;letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;">Zone Influencers</div>
-    ${influencers.map(inf=>`<span style="display:inline-block;font-family:monospace;font-size:11px;background:rgba(240,192,64,0.1);border:1px solid rgba(240,192,64,0.3);color:#f0c040;padding:4px 12px;border-radius:4px;margin:3px 4px 3px 0;">${inf}</span>`).join('')}
-  </div>` : ''}
-
-  ${concerns ? `<div style="background:#111318;border:1px solid #232830;border-radius:10px;padding:20px;margin-bottom:14px;">
-    <div style="font-family:monospace;font-size:10px;color:#f0c040;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">Notes / Other</div>
-    <div style="font-size:13px;color:#b0b8cc;line-height:1.65;">${concerns}</div>
-  </div>` : ''}
-
-  <div style="border-top:1px solid #1a1e27;margin-top:20px;padding-top:16px;font-family:monospace;font-size:10px;color:#3a4050;text-align:center;letter-spacing:1px;">FLYING TIGER INVESTMENTS · IOF COURSE · CHART ACADEMY</div>
-</div></body></html>`;
-
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        messages: [{ role: 'user', content: `Send an email via Gmail MCP with these exact parameters and no modifications:\n- to: "stephenbrentjenkins@gmail.com"\n- subject: "IOF Zone Score: ${ticker.toUpperCase()} — ${name} (${total}/20 · ${verdict})"\n- contentType: "text/html"\n- body: ${JSON.stringify(htmlBody)}\n\nFirst create the draft, then immediately send it using gmail_send_draft.` }],
-        mcp_servers: [{ type: 'url', url: 'https://gmail.mcp.claude.com/mcp', name: 'gmail-mcp' }]
-      })
+    await emailjs.send('service_w7fl2mj', 'template_vqezjtd', {
+      subject: `IOF Zone Score: ${ticker.toUpperCase()} — ${name} (${total}/20 · ${verdict})`,
+      html_body: htmlBody
     });
-
-    const data = await res.json();
-    const sent = data.content && data.content.some(b => b.type === 'mcp_tool_result' || (b.type==='text' && (b.text.includes('sent') || b.text.includes('draft') || b.text.includes('created'))));
 
     btn.innerHTML = '<span>✓</span> Sent to Instructor';
     btn.style.background = '#22c55e';
     document.getElementById('successOverlay').classList.add('show');
 
   } catch(err) {
-    console.error('Email error:', err);
-    btn.innerHTML = origText;
+    console.error('EmailJS error:', err);
+    btn.innerHTML = origHTML;
     btn.disabled = false;
+    alert('Email failed to send. Please copy the summary and email it manually to your instructor.');
     document.getElementById('successOverlay').classList.add('show');
   }
 }
